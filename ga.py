@@ -39,7 +39,7 @@ def mutate(c: List[int]):
     :param c: The chromosome to mutate
     """
     if not c:
-        return c
+        return
 
     # for x in range(2):
     #     idx = np.random.randint(x*len(c)/2, (x+1)*len(c)/2)
