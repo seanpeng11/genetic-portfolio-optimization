@@ -209,9 +209,9 @@ class HGAPSO:
         particles_dec = np.asarray([decode(particle) for particle in self.particles])
         pbest_dec = np.asarray([decode(pbest) for pbest in self.pbest])
         gbest_dec = decode(self.gbest)
-        # Update vels via the formula:
+        # Update velocities via the formula:
         # Vi(t+1) = w*Vi(t) + c1r1*(pbesti - Xi(t)) + c2r2(gbest - Xi(t))
-        # Where r1 and r2 are random numbers on [0,1), and Xi is the position of the ith elite particle
+        # Where r1 and r2 are random numbers on [0,1), and Xi is the position of the ith particle
         # Select the best-performing half of the particles
         r = np.random.rand(2)
         self.vels = self.w * self.vels + self.c1 * r[0] * (pbest_dec - particles_dec) + self.c2 * r[1] * (gbest_dec - particles_dec)
@@ -263,4 +263,17 @@ class HGAPSO:
         self.particles = offspring
         self.vels = offspring_vels
 
+        # Update scores again
+        self.scores = np.asarray([f(particle) for particle in particles_dec])
+        for i in range(self.pop_size):
+            if self.scores[i] < self.pbest_scores[i]:
+                self.pbest_scores[i] = self.scores[i]
+                self.pbest[i] = self.particles[i]
+
+        gen_best_ind = np.argmin(self.pbest_scores)
+        if self.pbest_scores[gen_best_ind] < self.gbest_score:
+            self.gbest_score = self.pbest_scores[gen_best_ind]
+            self.gbest = self.pbest[gen_best_ind]
+
+        # Increment generation
         self.gen += 1

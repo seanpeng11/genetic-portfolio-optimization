@@ -53,9 +53,9 @@ X, Y = np.meshgrid(xlist, ylist)
 # Z = 0.01 * (X - 1) * (X + 2) * (X + 5) * (X - 3) * (Y - 3) * (Y + 2) * (Y + 5)
 Z = fit_x_y(X, Y)
 
-fig, ax = plt.subplots()
-
-ax = plt.figure().add_subplot(projection='3d')
+# fig, ax = plt.subplots()
+fig = plt.figure()
+ax = fig.add_subplot(projection='3d')
 
 
 # Plot the 3D surface
@@ -89,9 +89,9 @@ initial_pop = (rng.integers(0, high=2, size=(20, 32))).tolist()
 # Decode these for visualization purposes
 initial_pop_coords = [decode_x_y(bitstring) for bitstring in initial_pop]
 
-# plt.ion()
+plt.ion()
 # fig, ax = plt.subplots()
-# plt.show()
+plt.show()
 # cp = ax.contourf(X, Y, Z, levels=20, cmap=mpl.colormaps.get('turbo'))
 # fig.colorbar(cp)
 scatter = ax.scatter3D([coord[0] for coord in initial_pop_coords], [coord[1] for coord in initial_pop_coords], [fit_func(coord) for coord in initial_pop_coords], color='#e834eb', marker='.', s=50)

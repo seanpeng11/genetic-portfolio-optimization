@@ -90,7 +90,7 @@ class GeneticAlgorithm:
         self.population = population
         self.fitness = fitness_func
         self.decode = decode_func
-        self.scores = None
+        self.scores = [self.fitness(decode_func(chrom)) for chrom in self.population]
 
         self.pop_size = len(population)
         self.k = k
@@ -99,17 +99,12 @@ class GeneticAlgorithm:
         self.optimum = optimum
 
         self.generation = 0
-        self.best = ('null', 'null')
-
-    def iterate(self):
-        # Evaluate this generation
-        decoded_pop = [self.decode(chrom) for chrom in self.population]
-        self.scores = [self.fitness(decoded_chrom) for decoded_chrom in decoded_pop]
-        if self.optimum:
+        if optimum:
             self.best = (self.decode(self.population[np.argmax(self.scores)]), np.max(self.scores))
         else:
             self.best = (self.decode(self.population[np.argmin(self.scores)]), np.min(self.scores))
 
+    def iterate(self):
         # Begin generating the next generation via selection, crossover, and mutation
         parents = [self.population[selection(self.k, self.scores, self.optimum)] for _ in range(self.pop_size)]
         new_gen = []
@@ -132,6 +127,14 @@ class GeneticAlgorithm:
 
         self.population = new_gen
         self.generation = self.generation + 1
+
+        # Evaluate this generation and update scores and best
+        decoded_pop = [self.decode(chrom) for chrom in self.population]
+        self.scores = [self.fitness(decoded_chrom) for decoded_chrom in decoded_pop]
+        if self.optimum:
+            self.best = (self.decode(self.population[np.argmax(self.scores)]), np.max(self.scores))
+        else:
+            self.best = (self.decode(self.population[np.argmin(self.scores)]), np.min(self.scores))
 
 
 
