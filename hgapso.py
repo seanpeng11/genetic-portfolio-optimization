@@ -1,9 +1,6 @@
 import numpy as np
 from numpy.typing import NDArray
 from typing import Callable, List, Tuple
-import matplotlib.pyplot as plt
-import time
-
 
 def selection(k: int, scores: NDArray[float]) -> int:
     """
@@ -14,7 +11,7 @@ def selection(k: int, scores: NDArray[float]) -> int:
     """
     # Select k random scores (by index)
     selected = np.random.randint(0, len(scores), k)
-    return selected[np.argmax([scores[x] for x in selected])]
+    return selected[np.argmin([scores[x] for x in selected])]
 
 
 def crossover(c1: NDArray[int], c2: NDArray[int]) -> Tuple[NDArray[int], NDArray[int]]:
@@ -50,6 +47,11 @@ def mutate(c: NDArray[int]) -> NDArray[int]:
 
     idx = np.random.randint(len(c))
     c[idx] = 1 - c[idx]
+
+
+def arithmetic_crossover(c1: NDArray[float], c2: NDArray[float]) -> Tuple[NDArray[float], NDArray[float]]:
+    alpha = np.random.rand()
+    return alpha*c1 + (1 - alpha)*c2, alpha*c2 + (1-alpha)*c1
 
 
 def f_coord(x: float, y: float) -> float:
@@ -104,15 +106,16 @@ def encode(p: NDArray) -> NDArray[int]:
 # print(str(t_b_reenc))
 
 class HGAPSO:
-    def __init__(self):
+    def __init__(self, pop_size: int = 20,
+                 k: int = 3, p_c: float = 0.6, p_m: float = 0.1, c1: float = 0.1, c2: float = 0.1, w: float = 0.8):
         # hyperparameters
-        self.pop_size = 40
-        self.k = 3
-        self.p_c = 0.7
-        self.p_m = 0.1
-        self.c1 = 0.1
-        self.c2 = 0.1
-        self.w = 0.8
+        self.pop_size = pop_size
+        self.k = k
+        self.p_c = p_c
+        self.p_m = p_m
+        self.c1 = c1  # exploration
+        self.c2 = c2  # exploitation
+        self.w = w
 
         # initialize population
         self.particles = np.random.randint(2, size=(self.pop_size, 32))  # in bitstrings
@@ -201,42 +204,63 @@ class HGAPSO:
 
         self.gen += 1
 
+    def iterate_v2(self):
+        # Enhance all the particles
+        particles_dec = np.asarray([decode(particle) for particle in self.particles])
+        pbest_dec = np.asarray([decode(pbest) for pbest in self.pbest])
+        gbest_dec = decode(self.gbest)
+        # Update vels via the formula:
+        # Vi(t+1) = w*Vi(t) + c1r1*(pbesti - Xi(t)) + c2r2(gbest - Xi(t))
+        # Where r1 and r2 are random numbers on [0,1), and Xi is the position of the ith elite particle
+        # Select the best-performing half of the particles
+        r = np.random.rand(2)
+        self.vels = self.w * self.vels + self.c1 * r[0] * (pbest_dec - particles_dec) + self.c2 * r[1] * (gbest_dec - particles_dec)
+        particles_dec += self.vels
+        np.clip(particles_dec, 0.0, 5.0)
 
-# visualization setup
-fig, ax = plt.subplots()
-fig.set_tight_layout(True)
-graph_x, graph_y = np.array(np.meshgrid(np.linspace(0, 5, 1000), np.linspace(0, 5, 1000)))
-graph_z = f_coord(graph_x, graph_y)
-img = ax.imshow(graph_z, extent=[0, 5, 0, 5], origin='lower', cmap='bwr')
-fig.colorbar(img, ax=ax)
-contours = ax.contour(graph_x, graph_y, graph_z, 10, colors='black', alpha=0.3)
-ax.clabel(contours, inline=True, fontsize=8, fmt='%.0f')
+        # Update scores, pbests, and gbest
+        self.particles = np.asarray([encode(particle) for particle in particles_dec])
+        self.scores = np.asarray([f(particle) for particle in particles_dec])
+        for i in range(self.pop_size):
+            if self.scores[i] < self.pbest_scores[i]:
+                self.pbest_scores[i] = self.scores[i]
+                self.pbest[i] = self.particles[i]
 
-alg = HGAPSO()
+        gen_best_ind = np.argmin(self.pbest_scores)
+        if self.pbest_scores[gen_best_ind] < self.gbest_score:
+            self.gbest_score = self.pbest_scores[gen_best_ind]
+            self.gbest = self.pbest[gen_best_ind]
 
-plt.ion()
+        # Now perform tournament selection to select parents
+        selected_inds = np.asarray([selection(self.k, self.scores) for _ in range(self.pop_size)])
+        parents = self.particles.copy()[selected_inds]
+        parent_vels = self.vels.copy()[selected_inds]
+        offspring = np.empty((self.pop_size, 32), dtype=np.int8)
+        offspring_vels = np.zeros((self.pop_size, 2))
+        for i in range(0, len(parents), 2):
+            cross1 = parents[i]
+            cross2 = None if i+1 >= len(parents) else parents[i+1]
 
-plt.show()
+            vel1 = parent_vels[i]
+            vel2 = None if i+1 >= len(parents) else parent_vels[i+1]
 
-for i in range(100):
-    ax.set_title(f'Generation {i}')
+            if np.random.rand() < self.p_c:
+                cross1, cross2 = crossover(cross1, cross2)
+                vel1, vel2 = arithmetic_crossover(vel1, vel2)
 
-    particles_dec = np.asarray([decode(particle) for particle in alg.particles])
-    vels = alg.vels
-    gbest = decode(alg.gbest)
-    particles_plot = ax.scatter(particles_dec[:, 0], particles_dec[:, 1], marker='o', color='black')
-    vels_plot = ax.quiver(particles_dec[:, 0], particles_dec[:, 1], vels[:, 0], vels[:, 1], color='green', width=0.005, angles='xy', scale_units='xy', scale=1)
-    gbest_plot = plt.scatter(gbest[0], gbest[1], marker='*', s=100, color='purple', alpha=0.5)
+            if np.random.rand() < self.p_m:
+                mutate(cross1)
 
-    fig.canvas.draw()
-    fig.canvas.flush_events()
+            if np.random.rand() < self.p_m:
+                mutate(cross2)
 
-    # time.sleep(0.2)
+            offspring[i] = cross1
+            offspring_vels[i] = vel1
+            if cross2 is not None:
+                offspring[i+1] = cross2
+                offspring_vels[i+1] = vel2
 
-    particles_plot.remove()
-    vels_plot.remove()
-    gbest_plot.remove()
+        self.particles = offspring
+        self.vels = offspring_vels
 
-    alg.iterate()
-
-print(f'HGAPSO found best solution at ({gbest[0]}, {gbest[1]})')
+        self.gen += 1
