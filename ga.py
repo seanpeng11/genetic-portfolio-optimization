@@ -2,16 +2,20 @@ import numpy as np
 from typing import Callable, List, Tuple
 
 
-def selection(k: int, scores: List[float]) -> int:
+def selection(k: int, scores: List[float], optimum: bool = True) -> int:
     """
-    Selects the chromosome yielding the largest score from a random set of k chromosomes.
+    Selects the chromosome yielding the best score from a random set of k chromosomes.
     :param k: The length of the subset of scores to select from
     :param scores: The list of population scores
+    :param optimum: Whether to select by maximum or minimum score (True -> maximum, False -> minimum)
     :return: The index corresponding to the largest selected scores
     """
     # Select k random scores (by index)
     selected = np.random.randint(0, len(scores), k)
-    return selected[np.argmax([scores[x] for x in selected])]
+    if optimum:
+        return selected[np.argmax([scores[x] for x in selected])]
+    else:
+        return selected[np.argmin([scores[x] for x in selected])]
 
 
 def crossover(c1: List[int], c2: List[int]) -> Tuple[List[int], List[int]]:
@@ -73,6 +77,8 @@ class GeneticAlgorithm:
         Hyperparameter for crossover; determines the approximate probability two given parents will crossover to form children
     p_m: float
         Hyperparameter for mutation; determines the approximate probability a given parent will mutate to form a child
+    optimum: bool
+        Parameter to configure the algorithm to maximize or minimize the fitness function (true -> maximize, false -> minimize)
     generation: int
         The current generation number
     best: Tuple[..., float]
@@ -80,7 +86,7 @@ class GeneticAlgorithm:
     """
 
     def __init__(self, population: List[List[int]], fitness_func: Callable[..., float], decode_func: Callable,
-                 k: int = 3, p_c: float = 0.8, p_m: float = None):
+                 k: int = 3, p_c: float = 0.8, p_m: float = None, optimum: bool = True):
         self.population = population
         self.fitness = fitness_func
         self.decode = decode_func
@@ -90,6 +96,7 @@ class GeneticAlgorithm:
         self.k = k
         self.p_c = p_c
         self.p_m = 1.0 / len(self.population[0]) if not p_m else p_m
+        self.optimum = optimum
 
         self.generation = 0
         self.best = ('null', 'null')
@@ -98,10 +105,13 @@ class GeneticAlgorithm:
         # Evaluate this generation
         decoded_pop = [self.decode(chrom) for chrom in self.population]
         self.scores = [self.fitness(decoded_chrom) for decoded_chrom in decoded_pop]
-        self.best = (self.decode(self.population[np.argmax(self.scores)]), np.max(self.scores))
+        if self.optimum:
+            self.best = (self.decode(self.population[np.argmax(self.scores)]), np.max(self.scores))
+        else:
+            self.best = (self.decode(self.population[np.argmin(self.scores)]), np.min(self.scores))
 
         # Begin generating the next generation via selection, crossover, and mutation
-        parents = [self.population[selection(self.k, self.scores)] for _ in range(self.pop_size)]
+        parents = [self.population[selection(self.k, self.scores, self.optimum)] for _ in range(self.pop_size)]
         new_gen = []
         for x in range(0, len(parents), 2):
             c1 = parents[x]

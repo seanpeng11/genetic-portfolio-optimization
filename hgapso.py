@@ -216,7 +216,7 @@ class HGAPSO:
         r = np.random.rand(2)
         self.vels = self.w * self.vels + self.c1 * r[0] * (pbest_dec - particles_dec) + self.c2 * r[1] * (gbest_dec - particles_dec)
         particles_dec += self.vels
-        np.clip(particles_dec, 0.0, 5.0)
+        np.clip(particles_dec, 0.0, 5.0, particles_dec)
 
         # Update scores, pbests, and gbest
         self.particles = np.asarray([encode(particle) for particle in particles_dec])
