@@ -3,6 +3,10 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import os
 from ga import GeneticAlgorithm
+from mpl_toolkits.mplot3d import axes3d
+from matplotlib import cm
+
+file_path = "./3D_surface_and_contour.jpg"
 
 
 # Multivariable multi-optimum example
@@ -48,14 +52,35 @@ ylist = np.linspace(-5.0, 3.0, 1000)
 X, Y = np.meshgrid(xlist, ylist)
 # Z = 0.01 * (X - 1) * (X + 2) * (X + 5) * (X - 3) * (Y - 3) * (Y + 2) * (Y + 5)
 Z = fit_x_y(X, Y)
+
 fig, ax = plt.subplots()
-plt.imshow(Z, extent=[-5, 3, -5, 3], origin='lower', cmap=mpl.colormaps.get('turbo'), alpha=1)
-# cp = ax.contour(X, Y, Z, levels=10, colors='black')
-plt.colorbar()
-ax.set_title('Contour graph of f(x,y) for x, y on [-5, 3]')
-plt.ion()
-plt.savefig('contour_graph.png')
-plt.show()
+
+ax = plt.figure().add_subplot(projection='3d')
+
+
+# Plot the 3D surface
+ax.plot_surface(X, Y, Z, edgecolor='royalblue', lw=0.5, rstride=100, cstride=100,
+                alpha=0.3)
+
+# Plot projections of the contours for each dimension.  By choosing offsets
+# that match the appropriate axes limits, the projected contours will sit on
+# the 'walls' of the graph
+ax.contourf(X, Y, Z, zdir='z', offset=-50, cmap='coolwarm')
+ax.contourf(X, Y, Z, zdir='x', offset=-5, cmap='coolwarm')
+ax.contourf(X, Y, Z, zdir='y', offset=4, cmap='coolwarm')
+
+ax.set(xlim=(-5, 3), ylim=(-5, 4), zlim=(-50, 50),
+       xlabel='X', ylabel='Y', zlabel='Z')
+
+plt.savefig("3dOrig.pdf")
+
+# plt.imshow(Z, extent=[-5, 3, -5, 3], origin='lower', cmap=mpl.colormaps.get('coolwarm'), alpha=1)
+# # cp = ax.contour(X, Y, Z, levels=10, colors='black')
+# plt.colorbar()
+# ax.set_title('Contour graph of f(x,y) for x, y on [-5, 3]')
+# plt.ion()
+# plt.savefig('contour_graph.png')
+# plt.show()
 
 # Initial population size 20
 rng = np.random.default_rng()
@@ -69,12 +94,12 @@ initial_pop_coords = [decode_x_y(bitstring) for bitstring in initial_pop]
 # plt.show()
 # cp = ax.contourf(X, Y, Z, levels=20, cmap=mpl.colormaps.get('turbo'))
 # fig.colorbar(cp)
-scatter = ax.scatter([coord[0] for coord in initial_pop_coords], [coord[1] for coord in initial_pop_coords], color='#e834eb', marker='*')
+scatter = ax.scatter3D([coord[0] for coord in initial_pop_coords], [coord[1] for coord in initial_pop_coords], [fit_func(coord) for coord in initial_pop_coords], color='#e834eb', marker='.', s=50)
 ax.set_title('Generation 0')
 fig.canvas.draw()
 fig.canvas.flush_events()
 # os.system('pause')
-# plt.savefig('gen_0.png')
+plt.savefig('gen_0.pdf')
 
 ga = GeneticAlgorithm(initial_pop, fit_func, decode_x_y, p_m=0.1)
 print(f'Generation {ga.generation}:\t{ga.best[0]}\t with {ga.best[1]}')
@@ -84,11 +109,12 @@ for x in range(50):
     pop_50 = [decode_x_y(bits) for bits in ga.population]
     pop_50_x = [coord[0] for coord in pop_50]
     pop_50_y = [coord[1] for coord in pop_50]
+    pop_50_z = [fit_func(coord) for coord in pop_50]
     scatter.remove()
-    scatter = ax.scatter(pop_50_x, pop_50_y, color='#e834eb', marker='*')
+    scatter = ax.scatter3D(pop_50_x, pop_50_y, pop_50_z,color='#e834eb', marker='.', s=50)
     ax.set_title(f'Generation {ga.generation}')
     fig.canvas.draw()
     fig.canvas.flush_events()
     print(f'Generation {ga.generation}:\t{ga.best[0]}\t with {ga.best[1]}')
 
-# plt.savefig('gen_50.png')
+plt.savefig('gen_50.pdf')
